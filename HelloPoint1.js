@@ -1,128 +1,171 @@
 window.onload = main;
 
-let VSHADER_SOURCE =
-  "attribute vec4 attribute_position;\n" +
-  "attribute vec4 attribute_color;\n" +
-  "varying vec4 color;\n" +
-  "void main() {\n" +
-  " gl_Position = attribute_position;\n" +
-  " gl_PointSize = 10.0;\n" +
-  "color = attribute_color;\n" +
-  "}\n";
+let gl;
+let color_buffer;
+let position_buffer;
+let point_size_buffer;
+let g_shapes = [];
+let g_selected_color = [1.0, 1.0, 1.0, 1.0]
+let g_selected_size = 10.0
 
-let FSHADER_SOURCE =
-  "precision mediump float;\n" +
-  "varying vec4 color;\n" +
-  "void main() {\n" +
-  " gl_FragColor = color;\n" +
-  "}\n";
+class Shape{
+    constructor(position, color, size){
+	this.type = "point";
+	this.position = position;
+	this.color = color;
+	this.size = size;
+    }
+}
+
 
 function main() {
-  let canvas = document.getElementById("andy_canvas");
-
-  let [gl, _program, position_buffer, color_buffer] = add_shaders_to_canvas(
-    canvas,
-    VSHADER_SOURCE,
-    FSHADER_SOURCE,
-  );
-
-  canvas.onmousedown = function (ev) {
-    click(ev, gl, canvas, position_buffer, color_buffer);
-  };
-  gl.clear(gl.COLOR_BUFFER_BIT);
+    let canvas = document.getElementById("andy_canvas");
+    
+    setupWebGL(canvas);
+    connectVariablesToGLSL();
+    addUiCallbacks();
+    handleClicks(canvas);
+    renderAllShapes();
 }
 
-let g_points = []; // The array for a mouse press
-let g_colors = []; // The array to store the color of a point
-function click(ev, gl, canvas, position_buffer, color_buffer) {
-  let x = ev.clientX; // x coordinate of a mouse pointer
-  let y = ev.clientY; // y coordinate of a mouse pointer
-  let rect = ev.target.getBoundingClientRect();
+function setupWebGL(canvas){
+    gl = canvas.getContext("webgl");
+    
+    //https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/By_example/Hello_GLSL
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, ANDY_VERTEX_SHADER_SOURCE);
+    gl.compileShader(vertexShader);
 
-  x = (x - rect.left - canvas.width / 2) / (canvas.width / 2);
-  y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, ANDY_FRAGMENT_SHADER_SOURCE);
+    gl.compileShader(fragmentShader);
 
-  g_points.push([x, y]);
+    let program = gl.createProgram();
 
-  if (x >= 0.0 && y >= 0.0) {
-    g_colors.push([1.0, 0.0, 0.0, 1.0]);
-  } else if (x < 0.0 && y < 0.0) {
-    g_colors.push([0.0, 1.0, 0.0, 1.0]);
-  } else {
-    g_colors.push([1.0, 0.0, 1.0, 1.0]);
-  }
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
 
-  gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.linkProgram(program);
 
-  console.log(g_points.length, g_colors.length);
+    gl.detachShader(program, vertexShader);
+    gl.detachShader(program, fragmentShader);
 
-  //use attrib arrays instead of looping for better performance (i think)
-  //https://stackoverflow.com/questions/77568662/how-does-this-code-work-with-multiple-buffer-bound-to-same-target
-  let color_buffer_data = new Float32Array(
-    g_colors.map((x) => [x[0], x[1], x[2], 1.0]).flat(),
-  );
-  gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, color_buffer_data, gl.DYNAMIC_DRAW);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
 
-  let position_buffer_data = new Float32Array(
-    g_points.map((x) => [x[0], x[1], 0.0, 1.0]).flat(),
-  );
-  gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, position_buffer_data, gl.DYNAMIC_DRAW);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+	const linkErrLog = gl.getProgramInfoLog(program);
+	console.log(
+	    `Shader program did not link successfully. Error log: ${linkErrLog}`,
+	);
+	return null;
+    }
 
-  gl.drawArrays(gl.POINTS, 0, g_points.length);
+    let a_Position = gl.getAttribLocation(program, "attribute_position");
+    let a_FragColor = gl.getAttribLocation(program, "attribute_color");
+    let a_PointSize = gl.getAttribLocation(program, "attribute_point_size");
+
+    //https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/By_example/Hello_vertex_attributes
+    //https://stackoverflow.com/questions/77568662/how-does-this-code-work-with-multiple-buffer-bound-to-same-target
+    gl.enableVertexAttribArray(a_Position);
+    gl.enableVertexAttribArray(a_FragColor);
+    gl.enableVertexAttribArray(a_PointSize);
+
+    position_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
+    gl.vertexAttribPointer(a_Position, 4, gl.FLOAT, false, 0, 0);
+
+    color_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
+    gl.vertexAttribPointer(a_FragColor, 4, gl.FLOAT, false, 0, 0);
+
+    point_size_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, point_size_buffer);
+    gl.vertexAttribPointer(a_PointSize, 1, gl.FLOAT, false, 0, 0);
+    
+    gl.useProgram(program);
+
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
 }
 
-function add_shaders_to_canvas(canvas, vertex_source, fragment_source) {
-  let gl = canvas.getContext("webgl");
+function connectVariablesToGLSL(){
+    
+}
 
-  //https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/By_example/Hello_GLSL
-  const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-  gl.shaderSource(vertexShader, vertex_source);
-  gl.compileShader(vertexShader);
+function addUiCallbacks(){
+    document.getElementById("red_slider").addEventListener("mouseup", function(){
+	g_selected_color[0] = this.value/100.0;
+    });
+    document.getElementById("green_slider").addEventListener("mouseup", function(){
+	g_selected_color[1] = this.value/100.0;
+    });
+    document.getElementById("blue_slider").addEventListener("mouseup", function(){
+	g_selected_color[2] = this.value/100.0;
+    });
+    document.getElementById("size_slider").addEventListener("mouseup", function(){
+	g_selected_size = this.value;
+    });
+}
 
-  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-  gl.shaderSource(fragmentShader, fragment_source);
-  gl.compileShader(fragmentShader);
+function handleClicks(canvas){
+    canvas.onmousedown = function (ev) {
+	click(ev, canvas);
+    };
+}
 
-  let program = gl.createProgram();
-
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-
-  gl.linkProgram(program);
-
-  gl.detachShader(program, vertexShader);
-  gl.detachShader(program, fragmentShader);
-
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const linkErrLog = gl.getProgramInfoLog(program);
-    console.log(
-      `Shader program did not link successfully. Error log: ${linkErrLog}`,
+function renderAllShapes(){
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    
+    //https://stackoverflow.com/questions/77568662/how-does-this-code-work-with-multiple-buffer-bound-to-same-target
+    let color_buffer_data = new Float32Array(
+	g_shapes.map((x) => x.color).map((x) => [x[0], x[1], x[2], 1.0]).flat(),
     );
-    return null;
-  }
+    gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, color_buffer_data, gl.DYNAMIC_DRAW);
 
-  let a_Position = gl.getAttribLocation(program, "attribute_position");
-  let a_FragColor = gl.getAttribLocation(program, "attribute_color");
+    let position_buffer_data = new Float32Array(
+	g_shapes.map((x) => x.position).map((x) => [x[0], x[1], 0.0, 1.0]).flat(),
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, position_buffer_data, gl.DYNAMIC_DRAW);
 
-  //https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/By_example/Hello_vertex_attributes
-  //https://stackoverflow.com/questions/77568662/how-does-this-code-work-with-multiple-buffer-bound-to-same-target
-  gl.enableVertexAttribArray(a_Position);
-  gl.enableVertexAttribArray(a_FragColor);
+    let point_size_buffer_data = new Float32Array(
+	g_shapes.map((x) => x.size)
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, point_size_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, point_size_buffer_data, gl.DYNAMIC_DRAW);
 
-  let position_buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
-  gl.vertexAttribPointer(a_Position, 4, gl.FLOAT, false, 0, 0);
-
-  let color_buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
-  gl.vertexAttribPointer(a_FragColor, 4, gl.FLOAT, false, 0, 0);
-
-  gl.useProgram(program);
-
-  return [gl, program, position_buffer, color_buffer];
+    
+    gl.drawArrays(gl.POINTS, 0, g_shapes.length);
 }
+
+function click(ev, canvas) {
+    let x = ev.clientX;
+    let y = ev.clientY;
+    let rect = ev.target.getBoundingClientRect();
+
+    x = (x - rect.left - canvas.width / 2) / (canvas.width / 2);
+    y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+
+    g_shapes.push(new Shape([x, y], g_selected_color.slice(), g_selected_size));
+
+    renderAllShapes();
+}
+
+let ANDY_VERTEX_SHADER_SOURCE = `
+attribute vec4 attribute_position;
+attribute vec4 attribute_color;
+attribute float attribute_point_size;
+varying vec4 color;
+void main() {
+  gl_Position = attribute_position;
+  gl_PointSize = attribute_point_size;
+  color = attribute_color;
+}`;
+
+let ANDY_FRAGMENT_SHADER_SOURCE = `
+precision mediump float;
+varying vec4 color;
+void main() {
+  gl_FragColor = color;
+}`;
