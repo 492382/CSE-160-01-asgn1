@@ -9,14 +9,18 @@ let point_size_buffer;
 let g_shapes = [];
 let g_selected_color = [1.0, 1.0, 1.0, 1.0];
 let g_selected_size = 10.0;
+let g_selected_num_segments = 10;
 let g_selected_shape = "point";
 
 class Shape {
-  constructor(type, position, color, size) {
+  constructor(type, position, color, size, num_segments) {
     this.type = type;
     this.position = position;
     this.color = color;
     this.size = size;
+    if (type == "circle") {
+      this.num_segments = num_segments;
+    }
   }
 }
 
@@ -98,22 +102,27 @@ function addUiCallbacks() {
   document
     .getElementById("red_slider")
     .addEventListener("mouseup", function () {
-      g_selected_color[0] = this.value / 100.0;
+      g_selected_color[0] = Number(this.value) / 100.0;
     });
   document
     .getElementById("green_slider")
     .addEventListener("mouseup", function () {
-      g_selected_color[1] = this.value / 100.0;
+      g_selected_color[1] = Number(this.value) / 100.0;
     });
   document
     .getElementById("blue_slider")
     .addEventListener("mouseup", function () {
-      g_selected_color[2] = this.value / 100.0;
+      g_selected_color[2] = Number(this.value) / 100.0;
     });
   document
     .getElementById("size_slider")
     .addEventListener("mouseup", function () {
-      g_selected_size = this.value;
+      g_selected_size = Number(this.value);
+    });
+  document
+    .getElementById("num_segments_slider")
+    .addEventListener("mouseup", function () {
+      g_selected_num_segments = Number(this.value);
     });
   document
     .getElementById("button_clear")
@@ -130,6 +139,11 @@ function addUiCallbacks() {
     .getElementById("button_shape_triangle")
     .addEventListener("mouseup", function () {
       g_selected_shape = "triangle";
+    });
+  document
+    .getElementById("button_shape_circle")
+    .addEventListener("mouseup", function () {
+      g_selected_shape = "circle";
     });
 }
 
@@ -149,6 +163,7 @@ function renderAllShapes() {
 
   drawPoints();
   drawTriangles();
+  drawCircles();
 }
 
 function drawPoints() {
@@ -181,8 +196,6 @@ function drawPoints() {
 }
 
 function drawTriangles() {
-  const NUM_TRIANGLE_VERTS = 3;
-
   gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
   gl.bufferData(gl.ARRAY_BUFFER, TRIANGLE_VERTS, gl.DYNAMIC_DRAW);
 
@@ -203,35 +216,81 @@ function drawTriangles() {
         triangle.color[2],
         1.0,
       ];
-      let colors = new Array(NUM_TRIANGLE_VERTS * 2).fill(color).flat();
+      let colors = new Array(NUM_TRIANGLE_VERTS).fill(color).flat();
       let color_buffer_data = new Float32Array(colors);
       gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
       gl.bufferData(gl.ARRAY_BUFFER, color_buffer_data, gl.DYNAMIC_DRAW);
 
-      set_matrix(1, [triangle.position[0], triangle.position[1], 0.0]);
+      set_matrix(triangle.size / 100.0, [
+        triangle.position[0],
+        triangle.position[1],
+        0.0,
+      ]);
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     });
 }
 
+function drawCircles() {
+  g_shapes
+    .filter((x) => x.type == "circle")
+    .forEach((circle) => {
+      //unused outside of "Point" shape but should be filled with junk idk
+      gl.bindBuffer(gl.ARRAY_BUFFER, point_size_buffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(NUM_TRIANGLE_VERTS * circle.num_segments).fill(0),
+        gl.DYNAMIC_DRAW,
+      );
+
+      let circle_verts = make_circle_verts(circle.num_segments);
+      gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(circle_verts),
+        gl.DYNAMIC_DRAW,
+      );
+
+      let color = [circle.color[0], circle.color[1], circle.color[2], 1.0];
+
+      let colors = new Array(NUM_TRIANGLE_VERTS * circle.num_segments)
+        .fill(color)
+        .flat();
+      let color_buffer_data = new Float32Array(colors);
+      gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, color_buffer_data, gl.DYNAMIC_DRAW);
+
+      set_matrix(circle.size / 100.0, [
+        circle.position[0],
+        circle.position[1],
+        0.0,
+      ]);
+
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 2 + circle.num_segments);
+    });
+}
+
+function make_circle_verts(num_segments) {
+  let center = [0.0, 0.0, 0.0];
+  let angle_per_segment = TAU / num_segments;
+
+  let verts = center;
+
+  for (let seg_num = 0; seg_num <= num_segments; seg_num++) {
+    let angle = seg_num * angle_per_segment;
+    let vert = [Math.cos(angle), Math.sin(angle), 0.0];
+    verts = verts.concat(vert);
+  }
+
+  return verts;
+}
+
 function set_matrix(scale, transpose) {
   gl.uniformMatrix4fv(u_Matrix, false, [
-    scale,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    scale,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    scale,
-    0.0,
-    transpose[0],
-    transpose[1],
-    transpose[2],
-    1.0,
+    scale, 0.0, 0.0, 0.0,
+    0.0, scale, 0.0, 0.0,
+    0.0, 0.0, scale, 0.0,
+    transpose[0], transpose[1], transpose[2], 1.0,
   ]);
 }
 
@@ -250,6 +309,16 @@ function click(ev, canvas) {
   } else if (g_selected_shape == "triangle") {
     g_shapes.push(
       new Shape("triangle", [x, y], g_selected_color.slice(), g_selected_size),
+    );
+  } else if (g_selected_shape == "circle") {
+    g_shapes.push(
+      new Shape(
+        "circle",
+        [x, y],
+        g_selected_color.slice(),
+        g_selected_size,
+        g_selected_num_segments,
+      ),
     );
   } else {
     console.error("invalid shape", g_selected_shape);
@@ -277,5 +346,10 @@ void main() {
 }`;
 
 const TRIANGLE_VERTS = new Float32Array([
-  0.2, 0.2, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
+  1.0, 1.0, 0.0,
+  1.0, 0.0, 0.0,
+  0.0, 0.0, 0.0,
 ]);
+const NUM_TRIANGLE_VERTS = 3;
+
+const TAU = 2 * Math.PI;
