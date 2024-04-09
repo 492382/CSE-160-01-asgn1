@@ -1,3 +1,5 @@
+import { andy_make_drawing } from "./andy_drawing.js";
+
 window.onload = main;
 
 let gl;
@@ -32,6 +34,8 @@ function main() {
   addUiCallbacks();
   handleClicks(canvas);
   renderAllShapes();
+
+  andy_make_drawing();
 }
 
 function setupWebGL(canvas) {
@@ -61,7 +65,7 @@ function setupWebGL(canvas) {
 
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     const linkErrLog = gl.getProgramInfoLog(program);
-    console.log(
+    console.error(
       `Shader program did not link successfully. Error log: ${linkErrLog}`,
     );
     return null;
@@ -227,7 +231,7 @@ function drawTriangles() {
         0.0,
       ]);
 
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.drawArrays(gl.TRIANGLES, 0, NUM_TRIANGLE_VERTS);
     });
 }
 
@@ -287,10 +291,22 @@ function make_circle_verts(num_segments) {
 
 function set_matrix(scale, transpose) {
   gl.uniformMatrix4fv(u_Matrix, false, [
-    scale, 0.0, 0.0, 0.0,
-    0.0, scale, 0.0, 0.0,
-    0.0, 0.0, scale, 0.0,
-    transpose[0], transpose[1], transpose[2], 1.0,
+    scale,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    scale,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    scale,
+    0.0,
+    transpose[0],
+    transpose[1],
+    transpose[2],
+    1.0,
   ]);
 }
 
@@ -346,9 +362,7 @@ void main() {
 }`;
 
 const TRIANGLE_VERTS = new Float32Array([
-  1.0, 1.0, 0.0,
-  1.0, 0.0, 0.0,
-  0.0, 0.0, 0.0,
+  1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 ]);
 const NUM_TRIANGLE_VERTS = 3;
 
