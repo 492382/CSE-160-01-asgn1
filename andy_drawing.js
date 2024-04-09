@@ -16,7 +16,7 @@ const PADDLE_VEL = 0.05;
 const BALL_RAD = 0.04;
 const SCREEN_LEFT = -1;
 const SCREEN_RIGHT = 1;
-const SCREEN_TOP = 1;
+const SCREEN_TOP = 0.5;
 const SCREEN_BOT = -1;
 const PADDLE_OFFSET = 0.1;
 const PADDLE_WIDTH = 0.05;
@@ -99,9 +99,10 @@ export function andy_make_drawing() {
 }
 
 function right_paddle_predict_pos() {
-  let target_x = SCREEN_RIGHT - PADDLE_OFFSET - PADDLE_WIDTH - BALL_RAD;
+  //spaghetti code
+  const SCREEN_HEIGHT = SCREEN_TOP - SCREEN_BOT;
 
-  let SCREEN_HEIGHT = SCREEN_TOP - SCREEN_BOT;
+  let target_x = SCREEN_RIGHT - PADDLE_OFFSET - PADDLE_WIDTH - BALL_RAD;
 
   let diff_x = target_x - ball_x;
   let slope = ball_vy / ball_vx;
@@ -159,11 +160,13 @@ function right_paddle_predict_pos() {
 function draw_scene() {
   gl.clear(gl.COLOR_BUFFER_BIT);
 
+  draw_deco();
+
   set_matrix(
     [PADDLE_WIDTH, PADDLE_HEIGHT, 0],
     [SCREEN_LEFT + PADDLE_OFFSET, paddle_l_y - PADDLE_HEIGHT / 2, 1],
   );
-  draw_rect();
+  draw_rect([1.0, 0.5, 0.0, 1.0]);
   set_matrix(
     [PADDLE_WIDTH, PADDLE_HEIGHT, 0],
     [
@@ -172,16 +175,15 @@ function draw_scene() {
       1,
     ],
   );
-  draw_rect();
+  draw_rect([1.0, 0.5, 0.0, 1.0]);
 
   set_matrix([BALL_RAD, BALL_RAD, 0], [ball_x, ball_y, 1]);
   draw_circle();
 }
 
-function draw_rect() {
+function draw_rect(color) {
   gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
   gl.bufferData(gl.ARRAY_BUFFER, RECTANGLE_VERTS, gl.DYNAMIC_DRAW);
-  let color = [1.0, 1.0, 0.0, 1.0];
   let colors = new Array(NUM_RECTANGLE_VERTS).fill(color).flat();
   let color_buffer_data = new Float32Array(colors);
   gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
@@ -293,6 +295,27 @@ function set_matrix(scale, transpose) {
   ]);
 }
 
+function set_matrix_rotate(scale, transpose, theta) {
+  gl.uniformMatrix4fv(u_Matrix, false, [
+    scale[0] * Math.cos(theta),
+    scale[0] * Math.sin(theta),
+    0.0,
+    0.0,
+    scale[1] * -Math.sin(theta),
+    scale[1] * Math.cos(theta),
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    scale[2],
+    0.0,
+    transpose[0],
+    transpose[1],
+    transpose[2],
+    1.0,
+  ]);
+}
+
 function generate_cirlce_points() {
   const TAU = 2 * Math.PI;
   let center = [0.0, 0.0, 0.0];
@@ -307,4 +330,72 @@ function generate_cirlce_points() {
   }
 
   CIRCLE_VERTS = new Float32Array(verts);
+}
+
+function draw_deco() {
+  //乒乓球
+  let yellow = [1.0, 0.9, 0.1, 1.0];
+  let black = [0.1, 0.1, 0.1, 1.0];
+
+  //border
+  set_matrix([2, 0.5, 1], [-1, 0.5, 1]);
+  draw_rect(yellow);
+  set_matrix([0.03, 2, 1], [-1, -1, 1]);
+  draw_rect(yellow);
+  set_matrix([0.03, 2, 1], [0.97, -1, 1]);
+  draw_rect(yellow);
+
+  //乒
+  set_matrix([0.4, 0.03, 1], [-0.9, 0.9, 1]);
+  draw_rect(black);
+  set_matrix([0.03, 0.2, 1], [-0.9, 0.7, 1]);
+  draw_rect(black);
+  set_matrix([0.4, 0.03, 1], [-0.9, 0.8, 1]);
+  draw_rect(black);
+  set_matrix([0.03, 0.1, 1], [-0.7, 0.7, 0]);
+  draw_rect(black);
+  set_matrix([0.45, 0.03, 1], [-0.95, 0.7, 1]);
+  draw_rect(black);
+  set_matrix_rotate([0.2, 0.03, 1], [-0.7, 0.7, 1], -0.5);
+  draw_rect(black);
+
+  //乓
+  set_matrix([0.4, 0.03, 1], [-0.2, 0.9, 1]);
+  draw_rect(black);
+  set_matrix([0.03, 0.2, 1], [-0.2, 0.7, 1]);
+  draw_rect(black);
+  set_matrix([0.4, 0.03, 1], [-0.2, 0.8, 1]);
+  draw_rect(black);
+  set_matrix([0.03, 0.1, 1], [0.0, 0.7, 0]);
+  draw_rect(black);
+  set_matrix([0.45, 0.03, 1], [-0.25, 0.7, 1]);
+  draw_rect(black);
+  set_matrix_rotate([0.2, 0.03, 1], [0.0, 0.722, 1], Math.PI + 0.5);
+  draw_rect(black);
+
+  //球
+  set_matrix([0.15, 0.03, 1], [0.4, 0.9, 1]);
+  draw_rect(black);
+  set_matrix([0.15, 0.03, 1], [0.4, 0.8, 1]);
+  draw_rect(black);
+  set_matrix_rotate([0.15, 0.03, 1], [0.4, 0.69, 1], 0.1);
+  draw_rect(black);
+  set_matrix([0.03, 0.2, 1], [0.46, 0.7, 1]);
+  draw_rect(black);
+  set_matrix([0.2, 0.03, 1], [0.6, 0.85, 1]);
+  draw_rect(black);
+  set_matrix([0.03, 0.35, 1], [0.685, 0.6, 1]);
+  draw_rect(black);
+  set_matrix_rotate([0.1, 0.03, 1], [0.715, 0.63, 1], Math.PI - 0.2);
+  draw_rect(black);
+  set_matrix_rotate([0.13, 0.03, 1], [0.675, 0.75, 1], Math.PI + 0.7);
+  draw_rect(black);
+  set_matrix_rotate([0.09, 0.03, 1], [0.675, 0.75, 1], Math.PI / 2 + 0.7);
+  draw_rect(black);
+  set_matrix_rotate([-0.09, 0.03, 1], [0.725, 0.75, 1], Math.PI + 0.7);
+  draw_rect(black);
+  set_matrix_rotate([-0.13, 0.03, 1], [0.725, 0.75, 1], Math.PI / 2 + 0.7);
+  draw_rect(black);
+  set_matrix_rotate([0.03, 0.05, 1], [0.77, 0.875, 1], Math.PI / 4);
+  draw_rect(black);
 }
