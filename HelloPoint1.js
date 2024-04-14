@@ -2,6 +2,8 @@ import { andy_make_drawing } from "./andy_drawing.js";
 
 window.onload = main;
 
+let Z_SCALE = -1 / 10000000.0;
+
 let gl;
 let program;
 let u_Matrix;
@@ -96,6 +98,8 @@ function setupWebGL(canvas) {
   gl.useProgram(program);
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+  gl.enable(gl.DEPTH_TEST);
 }
 
 function connectVariablesToGLSL() {
@@ -163,7 +167,7 @@ function handleClicks(canvas) {
 }
 
 function renderAllShapes() {
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   drawPoints();
   drawTriangles();
@@ -184,10 +188,7 @@ function drawPoints() {
   gl.bufferData(gl.ARRAY_BUFFER, color_buffer_data, gl.DYNAMIC_DRAW);
 
   let position_buffer_data = new Float32Array(
-    points
-      .map((x) => x.position)
-      .map((x) => [x[0], x[1], 0.0])
-      .flat(),
+    points.map((x) => x.position).flat(),
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, position_buffer);
   gl.bufferData(gl.ARRAY_BUFFER, position_buffer_data, gl.DYNAMIC_DRAW);
@@ -228,7 +229,7 @@ function drawTriangles() {
       set_matrix(triangle.size / 100.0, [
         triangle.position[0],
         triangle.position[1],
-        0.0,
+        triangle.position[2],
       ]);
 
       gl.drawArrays(gl.TRIANGLES, 0, NUM_TRIANGLE_VERTS);
@@ -267,7 +268,7 @@ function drawCircles() {
       set_matrix(circle.size / 100.0, [
         circle.position[0],
         circle.position[1],
-        0.0,
+        circle.position[2],
       ]);
 
       gl.drawArrays(gl.TRIANGLE_FAN, 0, 2 + circle.num_segments);
@@ -320,17 +321,27 @@ function click(ev, canvas) {
 
   if (g_selected_shape == "point") {
     g_shapes.push(
-      new Shape("point", [x, y], g_selected_color.slice(), g_selected_size),
+      new Shape(
+        "point",
+        [x, y, g_shapes.length * Z_SCALE],
+        g_selected_color.slice(),
+        g_selected_size,
+      ),
     );
   } else if (g_selected_shape == "triangle") {
     g_shapes.push(
-      new Shape("triangle", [x, y], g_selected_color.slice(), g_selected_size),
+      new Shape(
+        "triangle",
+        [x, y, g_shapes.length * Z_SCALE],
+        g_selected_color.slice(),
+        g_selected_size,
+      ),
     );
   } else if (g_selected_shape == "circle") {
     g_shapes.push(
       new Shape(
         "circle",
-        [x, y],
+        [x, y, g_shapes.length * Z_SCALE],
         g_selected_color.slice(),
         g_selected_size,
         g_selected_num_segments,
