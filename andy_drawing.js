@@ -96,6 +96,12 @@ export function andy_make_drawing() {
 
     draw_scene();
   }, 10);
+
+  document
+    .getElementById("button_draw")
+    .addEventListener("mouseup", function () {
+      draw_scene();
+    });
 }
 
 function right_paddle_predict_pos() {

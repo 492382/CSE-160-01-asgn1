@@ -10,7 +10,17 @@
     <canvas id="andy_canvas" width="400" height="400"></canvas>
     <canvas id="drawing_canvas" width="400" height="400"></canvas>
     <image src="assets/PongVideoGameCabinet.jpg" , height="400"></image>
-    <p>Everything is drawn using VAOs for more efficiency.</p>
+    <p>
+      All points are drawn at once using a single VAOs for more performance.
+    </p>
+    <p>
+      Positioning is done using a 4×4 matrix attribute rather than constantly
+      rebinding VAOs for more efficiency.
+    </p>
+    <p>
+      Shapes are drawn in batches, and shapes covering eachother up is done with
+      the depth buffer so WebGL handles it for you.
+    </p>
     <p>
       Drawing is based off a pong (乒乓球) machine. Rectangles are made with 2
       triangles.
@@ -19,8 +29,14 @@
       The left paddle tries to follow the y position of the ball at all times.
     </p>
     <p>The right paddle calculates the position the ball will be.</p>
+    <p>
+      The drawing is constantly updated every 10ms, so the redraw button doesn't
+      really do much, but I put it in there just in case because it's part of
+      the rubric.
+    </p>
     <br />
     <button id="button_clear">clear</button>
+    <button id="button_draw">redraw drawing</button>
     <hr />
     <button id="button_shape_point">point</button>
     <button id="button_shape_triangle">triangle</button>
