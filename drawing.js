@@ -27,7 +27,7 @@ const RECTANGLE_VERTS = new Float32Array([
   0.0, 1.0, 0.0,
 ]);
 
-export function andy_make_drawing() {
+export function drawing_main() {
   let canvas = document.getElementById("drawing_canvas");
   set_up_webgl(canvas);
   generate_cirlce_points();

@@ -1,7 +1,3 @@
-import { andy_make_drawing } from "./andy_drawing.js";
-
-window.onload = main;
-
 let Z_SCALE = -1 / 10000000.0;
 
 let gl;
@@ -28,16 +24,14 @@ class Shape {
   }
 }
 
-function main() {
-  let canvas = document.getElementById("andy_canvas");
+export function paint_main() {
+  let canvas = document.getElementById("paint_canvas");
 
   setupWebGL(canvas);
   connectVariablesToGLSL();
   addUiCallbacks();
   handleClicks(canvas);
   renderAllShapes();
-
-  andy_make_drawing();
 }
 
 function setupWebGL(canvas) {
